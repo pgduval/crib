@@ -15,6 +15,8 @@ def make_deck():
 def get_ranks(hand):
     ranks = []
     for r, _ in hand:
+        if r > 10:
+            r = 10
         ranks.append(r)
     return ranks
 
@@ -32,6 +34,12 @@ def remove(hand, cardsToRemove):
         if h not in cardsToRemove:
             remaining_cards.append(h)
     return remaining_cards
+
+def print_combi(l, k):
+    for i in it.combinations(l, k):
+        print(i)
+
+# print_combi(['r1', 'r2', 'r3', 'r4'], 3)
 
 # Scoring fonctions
 
@@ -92,14 +100,22 @@ def check_suits(hand, cut):
 def check_15(hand, cut):
     pts_15 = 0
     for h in it.combinations(list(hand) + [cut], 5):
-        hand_suits = get_suits(h)
-        if (hand_suits.count(hand_suits[0]) == len(hand_suits)):
-            return 5
+        hand_ranks = get_ranks(h)
+        if sum(hand_ranks) == 15:
+            pts_15 += 2
     for h in it.combinations(list(hand) + [cut], 4):
-        hand_suits = get_suits(h)
-        if (hand_suits.count(hand_suits[0]) == len(hand_suits)):
-            pts_suits += 4
-    return pts_suits
+        hand_ranks = get_ranks(h)
+        if sum(hand_ranks) == 15:
+            pts_15 += 2
+    for h in it.combinations(list(hand) + [cut], 3):
+        hand_ranks = get_ranks(h)
+        if sum(hand_ranks) == 15:   
+            pts_15 += 2            
+    for h in it.combinations(list(hand) + [cut], 2):
+        hand_ranks = get_ranks(h)
+        if sum(hand_ranks) == 15: 
+            pts_15 += 2                           
+    return pts_15
 
 
 def check_noob(hand, cut):
@@ -109,32 +125,44 @@ def check_noob(hand, cut):
     else:
         return 0
 
-
 def score_hand(hand, cut, verbose=False):
 
+    pts_15 = check_15(hand, cut)
     pts_pair = check_pairs(hand, cut)
     pts_connector = check_connectors(hand, cut)
     pts_suits = check_suits(hand, cut)
     pts_noob = check_noob(hand, cut)
 
+    pts_total = sum([pts_15, pts_pair, pts_connector, pts_suits, pts_noob])
     if verbose is True:
-        print("-"*15)
+        print("-" * 15)
         print("Hand: ", hand)
         print("Cut: ", cut)
+        print("Pts 15: ", pts_15)
         print("Pts Pair: ", pts_pair)
         print("Pts Connectors: ", pts_connector)
         print("Pts Suits: ", pts_suits)
-        print("Pts Noob: ", pts_noob)                        
-        print("-"*15)
+        print("Pts Noob: ", pts_noob)
+        print("Pts Total: ", pts_total)
+        print("-" * 15)
+
 
 score_hand(hand=((2, 'h'), (2, 'd'), (2, 's'), (2, 'h')), 
            cut=(3, 'h'),
            verbose=True)
 
-
 score_hand(hand=((11, 'h'), (5, 'd'), (5, 's'), (5, 'c')), 
            cut=(5, 'h'),
            verbose=True)
+
+
+score_hand(hand=((10, 's'), (7, 'd'), (2, 'd'), (2, 'c')), 
+           cut=(5, 'h'),
+           verbose=True)
+
+
+
+print(get_ranks(hand=((11, 'h'), (5, 'd'), (5, 's'), (5, 'c'), (5, 'h'))))
 
 print(check_pairs(hand=((2, 'h'), (2, 'd'), (2, 's'), (2, 'h')), cut=(3, 'h')))
 print(check_pairs(hand=((2, 'h'), (2, 'd'), (2, 's'), (3, 'h')), cut=(3, 'h')))
@@ -184,11 +212,7 @@ print(check_pairs(p_hand, cut))
 
 
 
-def print_combi(l, k):
-    for i in it.combinations(l, k):
-        print(i)
 
-print_combi(['r1', 'r2', 'r3', 'r4'], 3)
 print_combi(['r1', 'r2', 'r3', 'r4'], 2)
 
 def score_hand(hand):

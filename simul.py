@@ -1,7 +1,11 @@
 import itertools as it
 import random
+import pandas as pd
+import os
+import multiprocessing
 
 # Generate deck
+
 def make_deck():
     suits = ['h', "d", "c", "s"]
     ranks = range(2, 15)
@@ -12,19 +16,15 @@ def make_deck():
             deck.append((r, s))
     return deck
 
-def get_ranks(hand):
-    ranks = []
-    for r, _ in hand:
-        if r > 10:
-            r = 10
-        ranks.append(r)
-    return ranks
+
+
 
 def get_suits(hand):
     suits = []
     for _, s in hand:
         suits.append(s)
     return suits
+
 
 def remove(hand, cardsToRemove):
     if not isinstance(cardsToRemove, list):
@@ -35,6 +35,7 @@ def remove(hand, cardsToRemove):
             remaining_cards.append(h)
     return remaining_cards
 
+
 def print_combi(l, k):
     for i in it.combinations(l, k):
         print(i)
@@ -43,12 +44,21 @@ def print_combi(l, k):
 
 # Scoring fonctions
 
+def get_ranks(hand, to10=False):
+    ranks = []
+    for r, _ in hand:
+        if to10 is True:
+            if r > 10:
+                r = 10
+        ranks.append(r)
+    return ranks
+
+
 def check_pairs(hand, cut):
     pts_pair = 0
     for h in it.combinations(list(hand) + [cut], 4):
         hand_ranks = get_ranks(h)
         if (hand_ranks.count(hand_ranks[0]) == len(hand_ranks)):
-            # pass
             return 12
     for h in it.combinations(list(hand) + [cut], 3):
         hand_ranks = get_ranks(h)
@@ -66,6 +76,8 @@ def check_pairs(hand, cut):
 all_5_connectors = [[v, v + 1, v + 2, v + 3, v + 4] for v in range(1, 7)]
 all_4_connectors = [[v, v + 1, v + 2, v + 3] for v in range(1, 8)]
 all_3_connectors = [[v, v + 1, v + 2] for v in range(1, 9)]
+
+
 def check_connectors(hand, cut):
     pts_connector = 0
     hand_ranks = get_ranks(list(hand) + [cut])
@@ -85,6 +97,13 @@ def check_connectors(hand, cut):
 
 
 def check_suits(hand, cut):
+    """
+    La suite donne:
+        - 4 pts si les 4 cartes sont dans la main
+        - 0 pts si les 3 cartes dans la main + la cut    
+        - 5 pts si les 5 cartes sont de la meme suite
+
+    """
     pts_suits = 0
     for h in it.combinations(list(hand) + [cut], 5):
         hand_suits = get_suits(h)
@@ -96,25 +115,41 @@ def check_suits(hand, cut):
             pts_suits += 4
     return pts_suits
 
+def check_suits(hand, cut):
+    """
+    La suite donne:
+        - 4 pts si les 4 cartes sont dans la main
+        - 0 pts si les 3 cartes dans la main + la cut    
+        - 5 pts si les 5 cartes sont de la meme suite
+
+    """
+    hand_suits = get_suits(list(hand) + [cut])
+    if (hand_suits.count(hand_suits[0]) == len(hand_suits)):
+        return 5
+    hand_suits = get_suits(list(hand))
+    if (hand_suits.count(hand_suits[0]) == len(hand_suits)):    
+        return 4   
+    else:
+        return 0
 
 def check_15(hand, cut):
     pts_15 = 0
     for h in it.combinations(list(hand) + [cut], 5):
-        hand_ranks = get_ranks(h)
+        hand_ranks = get_ranks(h, to10=True)
         if sum(hand_ranks) == 15:
             pts_15 += 2
     for h in it.combinations(list(hand) + [cut], 4):
-        hand_ranks = get_ranks(h)
+        hand_ranks = get_ranks(h, to10=True)
         if sum(hand_ranks) == 15:
             pts_15 += 2
     for h in it.combinations(list(hand) + [cut], 3):
-        hand_ranks = get_ranks(h)
-        if sum(hand_ranks) == 15:   
-            pts_15 += 2            
+        hand_ranks = get_ranks(h, to10=True)
+        if sum(hand_ranks) == 15:
+            pts_15 += 2
     for h in it.combinations(list(hand) + [cut], 2):
-        hand_ranks = get_ranks(h)
-        if sum(hand_ranks) == 15: 
-            pts_15 += 2                           
+        hand_ranks = get_ranks(h, to10=True)
+        if sum(hand_ranks) == 15:
+            pts_15 += 2
     return pts_15
 
 
@@ -145,6 +180,96 @@ def score_hand(hand, cut, verbose=False):
         print("Pts Noob: ", pts_noob)
         print("Pts Total: ", pts_total)
         print("-" * 15)
+    return pts_total
+
+
+PATH = '/home/elmaster/project/crib'
+deck = make_deck()
+combi = list(it.combinations(deck, 4))
+hands_cut_tmp = it.product(it.combinations(deck, 4), deck)
+hands_cut = list(filter(lambda x: x[1] not in x[0], hands_cut_tmp))
+
+for i in hands_cut[0:10]:
+    print(i)
+
+def compute(hand):
+    h = hand[0]
+    cut = hand[1]
+    return [h, cut, score_hand(hand=h, cut=cut)]
+
+pool = multiprocessing.Pool(processes=3)
+result = pool.map(compute, hands_cut)
+
+df_result = pd.DataFrame(result)
+df_result.columns = ['hand', 'cut', 'score']
+df_result.to_csv(os.path.join(PATH, 'scoring.csv'), index=False)
+
+
+print(df_result.head())
+
+
+score_hand(((8, 'h'), (9, 'h'), (10, 'h'), (14, 'h'))
+            ,(11, 'd'), verbose=True)
+
+
+score_hand(((5, 'h'), (5, 'd'), (11, 'h'), (14, 'h'))
+            ,(12, 'h') , verbose=True)
+
+score_hand(((5, 'h'), (5, 'h'), (11, 'h'), (14, 'h'))
+            ,(12, 'h') , verbose=True)
+
+((5, 'h'), (5, 'd'), (11, 'h'), (14, 'h'))  (12, 'h') 
+
+
+pts_15 = 0
+for h in it.combinations(list(((5, 'h'), (5, 'd'), (11, 'h'), (14, 'h'))) + [(12, 'h')], 2):
+    print(h)
+    hand_ranks = get_ranks(h, to10=True)
+    print(hand_ranks)
+    if sum(hand_ranks) == 15:
+        pts_15 += 2
+        print(pts_15)
+
+
+print(get_ranks(((5, 'h'), (5, 'd'), (11, 'h'), (14, 'h'), (12, 'h')), to10=True))
+
+scoring_results = []
+for idx, i in enumerate(combi):
+    if (idx % 1000 == 0):
+        print(idx)
+    hand = i[0:4]
+    cut = hand
+    for cut in deck:
+        if cut in hand:
+            continue
+        else:
+            scoring_results.append([hand, cut, score_hand(hand=hand, cut=cut)])
+
+
+
+
+
+df_result = pd.DataFrame(scoring_results)
+df_result.columns = ['hand', 'cut', 'score']
+df_result.to_csv(os.path.join(PATH, 'scoring.csv'), index=False)
+
+df_result.sort_values(by='score', ascending=False, inplace=True)
+
+print(df_result.head(20))
+
+
+
+
+
+# Random draw to get the cut
+cut = random.choice(deck)
+
+deck2 = list(filter(lambda x: x != cut, deck))
+
+
+
+p_hand = combi[0]
+
 
 
 score_hand(hand=((2, 'h'), (2, 'd'), (2, 's'), (2, 'h')), 
@@ -160,6 +285,10 @@ score_hand(hand=((10, 's'), (7, 'd'), (2, 'd'), (2, 'c')),
            cut=(5, 'h'),
            verbose=True)
 
+
+score_hand(hand=((2, 'h'), (2, 'd'), (2, 's'), (2, 'h')), cut=(3, 'h'), verbose=True)
+
+score_hand(hand=((4, 'h'), (2, 'd'), (2, 's'), (2, 'h')), cut=(5, 'h'), verbose=True)
 
 
 print(get_ranks(hand=((11, 'h'), (5, 'd'), (5, 's'), (5, 'c'), (5, 'h'))))
@@ -218,16 +347,6 @@ print_combi(['r1', 'r2', 'r3', 'r4'], 2)
 def score_hand(hand):
 
 
-deck = make_deck()
-
-# Random draw to get the cut
-cut = random.choice(deck)
-
-deck2 = list(filter(lambda x: x != cut, deck))
-
-combi = list(it.combinations(deck2, 4))
-
-p_hand = combi[0]
 
 r1, _, r2, _, r3, _, r4, _ = unpack(p_hand)
 
